@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 import './style.dart' as style; // 가져온 변수 작명 가능 (as)
 
 void main() {
@@ -18,7 +20,23 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> {
   int tab = 0;
+  List<dynamic> instarList = [];
   final PageController _pageController = PageController();
+
+  getData() async {
+    var result = await http.get(Uri.parse('https://codingapple1.github.io/app/data.json'));
+    return jsonDecode(result.body);
+  }
+
+  // 위젯이 처음 load 될때 실행
+  @override
+  void initState() {
+    super.initState();
+    getData().then((data) {
+      instarList = data;// 실제 json 데이터 출력
+      print(instarList);
+    });
+  }
 
   void _onTabChange(int index) {
     setState(() => tab = index);
@@ -41,7 +59,9 @@ class _MyAppState extends State<MyApp> {
           });
         },
         children: [
-          CustomBody(),
+          CustomBody(
+              instarList: instarList,
+          ),
           CustomShopBody(),
         ],
       ),
@@ -54,7 +74,6 @@ class _MyAppState extends State<MyApp> {
 }
 
 var customAppBarStyle = GoogleFonts.lobster(fontSize: 22, color: Colors.white);
-
 class CustomAppBar extends StatelessWidget {
   const CustomAppBar({super.key});
 
@@ -78,42 +97,42 @@ class CustomAppBar extends StatelessWidget {
   }
 }
 
-class CustomBody extends StatelessWidget {
-  CustomBody({super.key});
+
+class CustomBody extends StatefulWidget {
+  CustomBody({super.key, required this.instarList});
+  final List<dynamic> instarList;
 
   @override
+  State<CustomBody> createState() => _CustomBodyState();
+}
+
+class _CustomBodyState extends State<CustomBody> {
+  @override
   Widget build(context) {
-    return Row(
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Image.asset('assets/kona.png', fit: BoxFit.cover),
-              Padding(
-                padding: const EdgeInsets.only(left: 20.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        TextButton(
-                          onPressed: () {},
-                          child: Icon(Icons.thumb_up_alt_outlined),
-                        ),
-                      ],
-                    ),
-                    Text('좋아요', style: TextStyle(fontWeight: FontWeight.bold)),
-                    Text('johnKim'),
-                    Text('8월 7일'),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
+    return ListView.builder(itemCount: widget.instarList.length, itemBuilder: (c, i){
+      final item = widget.instarList[i];
+      final likes = int.parse(item['likes'].toString());
+      return Column(
+        children: [
+          Image.network(item['image']),
+          Container(
+
+            constraints: BoxConstraints(maxWidth: 600),
+            padding: EdgeInsets.all(20),
+            width: double.infinity,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('좋아요 ${item['likes']}'),
+                Text(item['user']),
+                Text(item['content']),
+                Text(item['date'])
+              ],
+            ),
+          )
+        ],
+      );
+    });
   }
 }
 
