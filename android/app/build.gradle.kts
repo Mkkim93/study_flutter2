@@ -8,7 +8,7 @@ plugins {
 android {
     namespace = "com.example.instargram"
     compileSdk = flutter.compileSdkVersion
-    ndkVersion = flutter.ndkVersion
+    ndkVersion = "27.0.12077973" // ✅ 여기 추가
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11

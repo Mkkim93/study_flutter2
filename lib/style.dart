@@ -9,7 +9,7 @@ var theme = ThemeData( // style 태그와 비슷 materialApp
       )
     ),
     appBarTheme: AppBarTheme(
-      backgroundColor: Colors.black,
+      backgroundColor: Colors.grey,
       actionsIconTheme: IconThemeData(color: Colors.black),
     ),
     textTheme: TextTheme(
