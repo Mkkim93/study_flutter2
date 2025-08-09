@@ -1,5 +1,5 @@
-
 import 'dart:io';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
@@ -10,16 +10,21 @@ import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:photofilters/photofilters.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:provider/provider.dart';
 
 void main() {
-  runApp(MaterialApp(
-      theme: style.theme,
-      // initialRoute: '/',
-      // routes: {
-      //   '/' : (c) => Text('첫페이지'),
-      //   '/detail' : (c) => Text('둘째페이지')
-      // },
-      home: MyApp()
+  runApp(ChangeNotifierProvider(
+    create: (c) => CustomStore(), // provider 를 materialApp 상위에서 감싸주면 모든 materialApp 자식위젯이 CustomStore 의 데이터 참조 가능
+    child: MaterialApp(
+        theme: style.theme,
+        // initialRoute: '/',
+        // routes: {
+        //   '/' : (c) => Text('첫페이지'),
+        //   '/detail' : (c) => Text('둘째페이지')
+        // },
+        home: MyApp()
+    ),
   ));
 }
 
@@ -38,6 +43,30 @@ class _MyAppState extends State<MyApp> {
   List<dynamic> instarList = [];
   final PageController _pageController = PageController();
   var userImage;
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  // 사용자가 앱에 데이터 삭제 를 하지 않는 이상 데이터가 항상 남아있음
+  saveData() async {
+    var storage = await SharedPreferences.getInstance();
+    var map = {'age' : 20};
+    storage.setString('map', jsonEncode(map));
+    storage.setString("name", "kim");
+
+    var mapResult = storage.getString('map') ?? '업는데요';
+    print(jsonDecode(mapResult)['age']);
+    // storage.setBool('bool', true);
+    // storage.setDouble('double', 0.2);
+    var result = storage.getString('name');
+    // var result2 = storage.getDouble('double');
+    // storage.remove('bool');
+
+    print(result);
+}
 
   void addData(List<dynamic> newData) {
     setState(() {
@@ -58,6 +87,7 @@ class _MyAppState extends State<MyApp> {
   @override
   void initState() {
     super.initState();
+    saveData();
     getData().then((data) {
       setState(() {
         instarList = data as List<dynamic>;
@@ -244,8 +274,7 @@ class _CustomBodyState extends State<CustomBody> {
         final item = widget.instarList[i];
         final imagePath = item['image'];
 
-        // 네트워크/로컬 파일 구분
-        final imageWidget = imagePath.toString().startsWith('http')
+        final imageWidget = imagePath.toString().startsWith('http') || imagePath.toString().startsWith("https")
             ? Image.network(imagePath)
             : Image.file(File(imagePath));
 
@@ -259,8 +288,30 @@ class _CustomBodyState extends State<CustomBody> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  GestureDetector(
+                    child: Text('글쓴이 ${item['user']}'),
+                    onTap: (){
+                      Navigator.push(context,
+                        PageRouteBuilder(
+                            pageBuilder: (context, a1, a2) => Profile(),
+                            transitionsBuilder: (context, a1, a2, child) =>
+                                SlideTransition( // 슬라이드 애니메이션
+                                    position: Tween(
+                                      begin: Offset(-1.0, 1.0), // 오른쪽 왼쪽 설정
+                                      end: Offset(0.0, 0.0),
+                                    ).animate(a1),
+                                  child: child,
+                                )
+                                // FadeTransition(opacity: a1, child: child), // 페이드인 아웃
+                            // transitionDuration: Duration(milliseconds: 500), // 속도
+                        )
+                      );
+                    },
+                    onDoubleTap: () {
+
+                    },
+                  ),
                   Text('좋아요 ${item['likes']}'),
-                  Text('글쓴이 ${item['user']}'),
                   Text('내용 ${item['content']}'),
                   Text(item['date']),
                 ],
@@ -416,7 +467,7 @@ class _UploadState extends State<Upload> {
                 "liked": false,
                 "user": _userController.text
               };
-              Navigator.pop(context, newPost); // ✅ 새 글 반환
+              Navigator.pop(context, newPost);
             },
             child: const Text("저장"),
           ),
@@ -425,3 +476,34 @@ class _UploadState extends State<Upload> {
     );
   }
 }
+
+// provider (store) 이건 state 보관함
+class CustomStore extends ChangeNotifier {
+  var name = 'kim';
+  var follower = 0;
+
+  void changeName() {
+    print('이름 변경');
+    name = 'john';
+    notifyListeners(); // 재 랜더링 함수
+  }
+}
+
+class Profile extends StatelessWidget {
+  Profile({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text(context.watch<CustomStore>().name),), // watch : state 에 있는 데이터 사용할 때
+      body: Column(
+        children: [
+          ElevatedButton(onPressed: () {
+            context.read<CustomStore>().changeName(); // read : state 에 내부에 있는 함수 호출할 때
+          }, child: Text('버튼'))
+        ],
+      ),
+    );
+  }
+}
+
