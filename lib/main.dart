@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'notification.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -14,8 +15,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:provider/provider.dart';
 
 void main() {
-  runApp(ChangeNotifierProvider(
-    create: (c) => CustomStore(), // provider 를 materialApp 상위에서 감싸주면 모든 materialApp 자식위젯이 CustomStore 의 데이터 참조 가능
+  runApp(MultiProvider( // 여러개의 store 등록
+    providers: [
+      ChangeNotifierProvider(create: (c) => CustomStore1()),
+      ChangeNotifierProvider(create: (c) => CustomStore2()),
+    ],
     child: MaterialApp(
         theme: style.theme,
         // initialRoute: '/',
@@ -87,6 +91,8 @@ class _MyAppState extends State<MyApp> {
   @override
   void initState() {
     super.initState();
+    initNotification();
+
     saveData();
     getData().then((data) {
       setState(() {
@@ -108,6 +114,9 @@ class _MyAppState extends State<MyApp> {
   @override
   Widget build(context) {
     return Scaffold(
+      floatingActionButton: FloatingActionButton(onPressed: (){
+        showNotification();
+      }, child: Text('+'),),
       appBar: AppBar(title: CustomAppBar(
           userImage: userImage,
           instarList: instarList,
@@ -477,15 +486,55 @@ class _UploadState extends State<Upload> {
   }
 }
 
+class CustomStore2 extends ChangeNotifier {
+  var name = 'lee';
+}
+
 // provider (store) 이건 state 보관함
-class CustomStore extends ChangeNotifier {
+class CustomStore1 extends ChangeNotifier {
   var name = 'kim';
   var follower = 0;
+  bool checkedFollower = false;
+  var profileImage = [];
+  // final List<File> parseImageData = [];
+  List<Image> parseImageData = [];
+
+  Future<void> getData() async {
+    final response = await http.get(
+      Uri.parse('https://codingapple1.github.io/app/profile.json'),
+    );
+
+    if (response.statusCode == 200) {
+      final List<dynamic> resultJson = jsonDecode(response.body);
+
+      // URL 리스트 저장
+      profileImage = resultJson.cast<String>();
+
+      // 네트워크 이미지 위젯 리스트 만들기
+      parseImageData = profileImage
+          .map((url) => Image.network(url))
+          .toList();
+      notifyListeners();
+    } else {
+      throw Exception('데이터 로드 실패');
+    }
+  }
 
   void changeName() {
     print('이름 변경');
     name = 'john';
     notifyListeners(); // 재 랜더링 함수
+  }
+
+  void addFlower() {
+    if (checkedFollower == false) {
+      follower++;
+      checkedFollower = true;
+    } else if (checkedFollower == true) {
+      follower--;
+      checkedFollower = false;
+    }
+    notifyListeners();
   }
 }
 
@@ -494,16 +543,54 @@ class Profile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+
     return Scaffold(
-      appBar: AppBar(title: Text(context.watch<CustomStore>().name),), // watch : state 에 있는 데이터 사용할 때
-      body: Column(
-        children: [
-          ElevatedButton(onPressed: () {
-            context.read<CustomStore>().changeName(); // read : state 에 내부에 있는 함수 호출할 때
-          }, child: Text('버튼'))
+      appBar: AppBar(title: Text(context.watch<CustomStore1>().name),), // watch : state 에 있는 데이터 사용할 때
+      body: CustomScrollView(
+        slivers: [
+          SliverToBoxAdapter(
+            child: ProfileHeader(),
+          ),
+          SliverGrid(delegate: SliverChildBuilderDelegate(
+              (c, i) => Container(
+                color: Colors.grey,
+                child: Column(
+                children: [
+                  c.read<CustomStore1>().parseImageData[i],
+                ],
+              ),
+              ),
+            childCount: 6,
+          ), gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3),
+          ),
         ],
-      ),
+      )
     );
   }
 }
+
+class ProfileHeader extends StatelessWidget {
+  const ProfileHeader({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceAround,
+      children: [
+        CircleAvatar(
+          radius: 30,
+          backgroundColor: Colors.grey,
+        ),
+        Text('팔로워 ${context.watch<CustomStore1>().follower}명'),
+        ElevatedButton(onPressed: () {
+          context.read<CustomStore1>().addFlower();
+        }, child: Text('팔로우')),
+        ElevatedButton(onPressed: () {
+          context.read<CustomStore1>().getData();
+        }, child: Text('사진가져오기')),
+      ],
+    );
+  }
+}
+
 

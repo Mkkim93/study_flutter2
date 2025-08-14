@@ -1,6 +1,10 @@
 import Flutter
 import UIKit
 
+if #available(iOS 10.0, *) {
+      UNUserNotificationCenter.current().delegate = self as? UNUserNotificationCenterDelegate
+}
+
 @main
 @objc class AppDelegate: FlutterAppDelegate {
   override func application(
